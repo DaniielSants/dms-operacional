@@ -7,33 +7,85 @@ export default function DetalhesRelatorio() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [dados, setDados] = useState(null);
+  const [erro, setErro] = useState(false);
 
   useEffect(() => {
     carregarDetalhes();
   }, [id]);
 
-  const carregarDetalhes = async () => {
-    const { data, error } = await supabase
-      .from('respostas_executadas')
-      .select(`
-        id,
-        data_finalizada,
-        usuario_email,
-        conteudo_respostas,
-        checklists_templates ( titulo )
-      `)
-      .eq('id', id)
-      .single();
-
-    if (!error && data) {
-      setDados({
-        titulo: data.checklists_templates?.titulo || 'Checklist',
-        data_finalizada: data.data_finalizada,
-        usuario_email: data.usuario_email,
-        conteudo_respostas: data.conteudo_respostas || []
+  const formatarDataHora = (dataString) => {
+    if (!dataString) return 'Data N/A';
+    const stringData = String(dataString);
+    if (stringData.includes('T')) {
+      return new Date(stringData).toLocaleString('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
       });
     }
+    const partes = stringData.split('-');
+    if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`;
+    return stringData;
   };
+
+  const carregarDetalhes = async () => {
+    try {
+      // 1. Busca pura no respostas_executadas sem dependência de join
+      const { data, error } = await supabase
+        .from('respostas_executadas')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (error || !data) {
+        console.error("Erro Supabase:", error);
+        setErro(true);
+        return;
+      }
+
+      let tituloChecklist = `Inspeção #${data.id}`;
+
+      // 2. Busca o nome do template separadamente para não quebrar a tela se falhar
+      if (data.template_id) {
+        const { data: tData } = await supabase
+          .from('checklists_templates')
+          .select('titulo')
+          .eq('id', data.template_id)
+          .maybeSingle();
+
+        if (tData?.titulo) {
+          tituloChecklist = tData.titulo;
+        }
+      }
+
+      setDados({
+        titulo: tituloChecklist,
+        data_finalizada: formatarDataHora(data.created_at || data.data_finalizada),
+        usuario_email: data.usuario_email || 'Não informado',
+        conteudo_respostas: data.conteudo_respostas || []
+      });
+    } catch (e) {
+      console.error("Erro inesperado:", e);
+      setErro(true);
+    }
+  };
+
+  if (erro) {
+    return (
+      <div className="p-10 text-center font-bold text-red-500 space-y-4">
+        <p>Erro ao carregar o relatório.</p>
+        <button 
+          onClick={() => navigate(-1)} 
+          className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold"
+        >
+          Voltar aos relatórios
+        </button>
+      </div>
+    );
+  }
 
   if (!dados) return <div className="p-20 text-center font-bold text-gray-500">Carregando relatório...</div>;
 
@@ -63,7 +115,7 @@ export default function DetalhesRelatorio() {
               </div>
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-gray-50 rounded-lg shrink-0"><Calendar size={20} className="text-blue-600"/></div>
-                <div><p className="text-[10px] uppercase font-black text-gray-400">Data</p><p className="font-bold text-sm sm:text-base">{dados.data_finalizada}</p></div>
+                <div><p className="text-[10px] uppercase font-black text-gray-400">Data e Hora</p><p className="font-bold text-sm sm:text-base">{dados.data_finalizada}</p></div>
               </div>
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-gray-50 rounded-lg shrink-0"><User size={20} className="text-blue-600"/></div>
@@ -78,7 +130,6 @@ export default function DetalhesRelatorio() {
 
                 return (
                   <div key={index} className="bg-gray-50 p-4 sm:p-5 rounded-2xl border border-gray-100">
-                    <p className="text-xs sm:text-sm font-black text-blue-600 uppercase mb-1 sm:mb-2 tracking-tighter">Pergunta</p>
                     <p className="text-base sm:text-lg font-bold text-gray-800 mb-3">{item.pergunta}</p>
                     
                     <div className="flex justify-between items-center bg-white p-3.5 sm:p-4 rounded-xl shadow-sm">

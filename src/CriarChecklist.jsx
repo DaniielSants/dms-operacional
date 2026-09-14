@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
-import { Plus, Trash2, Save, ArrowLeft, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, Loader2, Clock } from 'lucide-react';
 
 export default function CriarChecklist() {
   const navigate = useNavigate();
@@ -113,7 +113,7 @@ export default function CriarChecklist() {
                   value={q.label}
                   onChange={(e) => atualizarPergunta(index, 'label', e.target.value)}
                 />
-                <div className="flex gap-4">
+                <div className="flex gap-4 items-center">
                   <select 
                     className="bg-gray-50 border rounded-lg p-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                     value={q.tipo}
@@ -123,7 +123,9 @@ export default function CriarChecklist() {
                     <option value="select">Múltipla Escolha</option>
                     <option value="imagem">Foto/Câmera</option>
                     <option value="telefone">Telefone</option>
+                    <option value="hora">Hora Automática</option>
                   </select>
+
                   {q.tipo === 'select' && (
                     <input 
                       placeholder="Opções (separe por ponto e vírgula ;)" 
@@ -131,6 +133,12 @@ export default function CriarChecklist() {
                       value={q.opcoes}
                       onChange={(e) => atualizarPergunta(index, 'opcoes', e.target.value)}
                     />
+                  )}
+
+                  {q.tipo === 'hora' && (
+                    <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-2 rounded-lg flex items-center gap-1.5 border border-blue-100">
+                      <Clock size={14} /> Captura automática da hora no preenchimento
+                    </span>
                   )}
                 </div>
               </div>
