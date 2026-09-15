@@ -21,45 +21,46 @@ export default function Dashboard() {
     total_historico: 0
   });
 
-  const nome = localStorage.getItem('nome') || 'Usuário';
-  const cargo = localStorage.getItem('cargo') || 'OPERADOR';
-  const rawEmpresaId = localStorage.getItem('empresa_id') || '1';
+  // Leitura com fallback entre o objeto dms_usuario e chaves individuais do localStorage
+  const rawUsuario = localStorage.getItem('dms_usuario');
+  const usuarioObj = rawUsuario ? JSON.parse(rawUsuario) : {};
+
+  const nome = usuarioObj.nome || localStorage.getItem('nome') || 'Usuário';
+  const cargo = usuarioObj.cargo || localStorage.getItem('cargo') || 'OPERADOR';
+  const rawEmpresaId = usuarioObj.empresa_id || localStorage.getItem('empresa_id') || '1';
   const empresaId = parseInt(rawEmpresaId, 10);
 
+  const isSuperAdmin = cargo === 'SUPER_ADMIN';
+  const isAdmin = isSuperAdmin || cargo === 'ADMIN' || cargo === 'ADMIN_EMPRESA' || cargo === 'ADMIN_UNIDADE';
+
   useEffect(() => {
-    if (empresaId) {
-      carregarEstatisticasSupabase();
-    }
-  }, [empresaId]);
+    carregarEstatisticasSupabase();
+  }, [empresaId, cargo]);
 
   const carregarEstatisticasSupabase = async () => {
     try {
       const hoje = new Date().toISOString().split('T')[0];
 
-      // 1. Total de Modelos
-      const { count: totalTemplates } = await supabase
-        .from('checklists_templates')
-        .select('*', { count: 'exact', head: true })
-        .eq('empresa_id', empresaId);
+      // Queries base
+      let qTemplates = supabase.from('checklists_templates').select('*', { count: 'exact', head: true });
+      let qHoje = supabase.from('respostas_executadas').select('*', { count: 'exact', head: true }).eq('data_finalizada', hoje);
+      let qHistorico = supabase.from('respostas_executadas').select('*', { count: 'exact', head: true });
+      let qUsuarios = supabase.from('usuarios').select('*', { count: 'exact', head: true });
 
-      // 2. Concluídos Hoje
-      const { count: concluidosHoje } = await supabase
-        .from('respostas_executadas')
-        .select('*', { count: 'exact', head: true })
-        .eq('empresa_id', empresaId)
-        .eq('data_finalizada', hoje);
+      // Se não for SUPER_ADMIN, filtra obrigatoriamente pela empresa logada
+      if (!isSuperAdmin && empresaId) {
+        qTemplates = qTemplates.eq('empresa_id', empresaId);
+        qHoje = qHoje.eq('empresa_id', empresaId);
+        qHistorico = qHistorico.eq('empresa_id', empresaId);
+        qUsuarios = qUsuarios.eq('empresa_id', empresaId);
+      }
 
-      // 3. Histórico Total
-      const { count: totalHistorico } = await supabase
-        .from('respostas_executadas')
-        .select('*', { count: 'exact', head: true })
-        .eq('empresa_id', empresaId);
-
-      // 4. Total de Usuários
-      const { count: totalUsuarios } = await supabase
-        .from('usuarios')
-        .select('*', { count: 'exact', head: true })
-        .eq('empresa_id', empresaId);
+      const [
+        { count: totalTemplates },
+        { count: concluidosHoje },
+        { count: totalHistorico },
+        { count: totalUsuarios }
+      ] = await Promise.all([qTemplates, qHoje, qHistorico, qUsuarios]);
 
       setStats({
         total_templates: totalTemplates || 0,
@@ -147,7 +148,8 @@ export default function Dashboard() {
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4">Ações Rápidas</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            
             {/* EXECUTAR CHECKLIST */}
             <div 
               onClick={() => navigate('/checklists')}
@@ -182,8 +184,8 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* AÇÕES DE ADMINISTRADOR */}
-            {cargo === 'ADMIN' && (
+            {/* AÇÕES DE ADMINISTRADORES */}
+            {isAdmin && (
               <>
                 <div 
                   onClick={() => navigate('/criar-checklist')}
@@ -218,6 +220,26 @@ export default function Dashboard() {
                 </div>
               </>
             )}
+
+            {/* AÇÃO EXCLUSIVA SUPER_ADMIN (GESTAO DE BASES) */}
+            {isSuperAdmin && (
+              <div 
+                onClick={() => navigate('/empresas')}
+                className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-indigo-600 text-white rounded-xl group-hover:scale-105 transition-transform">
+                    <Building2 size={24} />
+                  </div>
+                  <span className="text-xs font-bold text-indigo-600 group-hover:translate-x-1 transition-transform">Ir →</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-800 text-base sm:text-lg">Gestão de Bases</h3>
+                  <p className="text-xs sm:text-sm text-gray-400 mt-1">Cadastre empresas, filiais e configure os acessos master.</p>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
 

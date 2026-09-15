@@ -28,12 +28,16 @@ export default function Login() {
       } else if (!data) {
         alert("E-mail ou senha incorretos!");
       } else {
-        // Armazena as sessões do usuário no LocalStorage
+        // 1. Armazena o objeto completo em 'dms_usuario' para facilitar a gestão multi-empresa/unidade
+        localStorage.setItem('dms_usuario', JSON.stringify(data));
+
+        // 2. Armazena as chaves individuais (mantido para compatibilidade do seu código)
         localStorage.setItem('email', data.email);
         localStorage.setItem('nome', data.nome);
         localStorage.setItem('cargo', data.cargo);
-        localStorage.setItem('empresa_id', data.empresa_id);
-        
+        localStorage.setItem('empresa_id', data.empresa_id ?? '');
+        localStorage.setItem('unidade_id', data.unidade_id ?? '');
+
         // Redireciona para o Painel
         navigate('/dashboard');
       }
@@ -97,12 +101,13 @@ export default function Login() {
               </>
             )}
           </button>
-             {/* ASSINATURA DMS */}
-        <div className="pt-8 text-center">
-          <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
-            Developed by <span className="text-blue-500">Daniel Santos</span>
-          </p>
-        </div>
+
+          {/* ASSINATURA DMS */}
+          <div className="pt-8 text-center">
+            <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
+              Developed by <span className="text-blue-500">Daniel Santos</span>
+            </p>
+          </div>
         </form>
       </div>
     </div>
